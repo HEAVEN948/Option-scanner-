@@ -75,7 +75,7 @@
   .confidence-wrap{display:flex; align-items:center; gap:14px; margin-bottom:6px;}
   .confidence-ring{
     width:64px; height:64px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-    font-weight:800; font-size:16px; flex-shrink:0;
+    font-weight:800; font-size:16px; flex-shrink:0; color:#fff;
   }
   .bias-badge{
     display:inline-block; padding:4px 12px; border-radius:20px; font-size:12px; font-weight:700;
@@ -85,17 +85,18 @@
   .bias-bearish{background:rgba(239,68,68,0.15); color:var(--red);}
   .bias-neutral{background:rgba(148,163,184,0.15); color:var(--gray);}
   .strike-hero{
-    text-align:center; padding:20px 0; border-top:1px solid var(--border);
-    border-bottom:1px solid var(--border); margin:16px 0;
+    text-align:center; padding:18px 0; border-top:1px solid var(--border);
+    border-bottom:1px solid var(--border); margin:14px 0;
   }
-  .strike-hero .type{font-size:13px; color:var(--gray); font-weight:600;}
-  .strike-hero .value{font-size:38px; font-weight:800; margin:4px 0;}
+  .strike-hero .type{font-size:12px; color:var(--gray); font-weight:600; text-transform:uppercase; letter-spacing:0.5px;}
+  .strike-hero .value{font-size:34px; font-weight:800; margin:4px 0;}
   .strike-hero .value.ce{color:var(--green);}
   .strike-hero .value.pe{color:var(--red);}
+  .strike-hero .tag{font-size:12px; color:var(--amber); font-weight:600;}
   .levels{display:flex; gap:10px; margin-top:10px;}
   .level-box{flex:1; background:var(--panel2); border-radius:10px; padding:12px; text-align:center;}
-  .level-box .lbl{font-size:11px; color:var(--gray); font-weight:600; text-transform:uppercase;}
-  .level-box .val{font-size:18px; font-weight:800; margin-top:4px;}
+  .level-box .lbl{font-size:10px; color:var(--gray); font-weight:600; text-transform:uppercase;}
+  .level-box .val{font-size:17px; font-weight:800; margin-top:4px;}
   .sl .val{color:var(--red);} .tgt .val{color:var(--green);} .entry .val{color:var(--blue2);}
   .reasoning{margin-top:14px;}
   .reason-row{display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border); font-size:13px;}
@@ -117,6 +118,25 @@
     border-radius:50%; margin:0 auto 10px; animation:spin 0.8s linear infinite;
   }
   @keyframes spin{to{transform:rotate(360deg);}}
+  .warn-banner{
+    background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.4); border-radius:12px;
+    padding:12px 14px; margin-bottom:14px; font-size:12.5px; color:#FCA5A5; line-height:1.5;
+    display:flex; gap:10px; align-items:flex-start;
+  }
+  .dte-banner{
+    background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.35); border-radius:12px;
+    padding:10px 14px; margin-bottom:14px; font-size:12.5px; color:#FCD34D;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .dte-banner .dte-num{font-weight:800; font-size:15px;}
+  .sr-row{display:flex; gap:10px; margin-top:10px;}
+  .sr-box{flex:1; background:var(--panel2); border-radius:10px; padding:10px; text-align:center;}
+  .sr-box .lbl{font-size:10px; color:var(--gray); font-weight:600; text-transform:uppercase;}
+  .sr-box .val{font-size:16px; font-weight:800; margin-top:3px;}
+  .res .val{color:var(--red);} .sup .val{color:var(--green);}
+  .short-card{border:1px solid rgba(245,158,11,0.3);}
+  .short-card .strike-hero .value{color:var(--amber);}
+  .theta-note{font-size:11.5px; color:var(--gray); background:var(--panel2); border-radius:8px; padding:10px; margin-top:10px; line-height:1.5;}
 </style>
 </head>
 <body>
@@ -160,7 +180,7 @@
     <div class="upload-zone" id="uploadZone">
       <div class="upload-icon">📊</div>
       <p><strong>Tap to upload</strong> or drag & drop</p>
-      <p>20–30 candles visible works best · 5-min or 15-min</p>
+      <p>20–25 candles visible works best · 5-min or 15-min</p>
     </div>
     <input type="file" id="fileInput" accept="image/*" style="display:none">
     <div id="previewWrap"><img id="preview"></div>
@@ -174,6 +194,9 @@
   </div>
 
   <div id="results">
+    <div id="dteBannerWrap"></div>
+    <div id="warnBannerWrap"></div>
+
     <div class="card">
       <h2>Signal</h2>
       <div class="confidence-wrap">
@@ -183,17 +206,28 @@
           <p style="color:var(--gray); font-size:12px; margin-top:4px;" id="confLabel">Confidence: --</p>
         </div>
       </div>
+      <div class="sr-row">
+        <div class="sr-box res"><div class="lbl">Resistance</div><div class="val" id="resVal">--</div></div>
+        <div class="sr-box sup"><div class="lbl">Support</div><div class="val" id="supVal">--</div></div>
+      </div>
     </div>
 
     <div class="card" id="tradeCard">
+      <h2>Buy Option (Directional)</h2>
       <div id="tradeContent"></div>
       <div class="reasoning" id="reasoning"></div>
     </div>
 
+    <div class="card short-card" id="shortCard" style="display:none;">
+      <h2>Short Option (Sell / Theta Play)</h2>
+      <div id="shortContent"></div>
+      <div class="theta-note" id="shortNote"></div>
+    </div>
+
     <div class="disclaimer">
       ⚠️ Estimates only, derived from chart geometry (no live OI/IV data). Not investment advice
-      and not a profit guarantee. Always confirm with live premium, your own risk limits, and
-      market conditions before placing a trade.
+      and not a profit guarantee. Short/sell option strategies carry theoretically unlimited risk if
+      unhedged — always use a strict SL and consider your broker's margin requirements before writing options.
     </div>
   </div>
 
@@ -209,7 +243,6 @@ const iconSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <path d="M22 72V30l16 22 12-16 12 16 16-22v42h-8V46l-20 26-20-26v26z" fill="url(#g)" transform="scale(0.9) translate(6,4)"/>
   <circle cx="80" cy="24" r="7" fill="#F59E0B"/></svg>`;
 const iconURL = 'data:image/svg+xml;base64,' + btoa(iconSVG);
-document.querySelector('link[rel="icon"]')?.remove();
 const favLink = document.createElement('link'); favLink.rel='icon'; favLink.href=iconURL;
 document.head.appendChild(favLink);
 
@@ -295,7 +328,7 @@ function checkReady() {
 analyzeBtn.addEventListener('click', () => {
   document.getElementById('loader').style.display = 'block';
   analyzeBtn.style.display = 'none';
-  setTimeout(runAnalysis, 400); // let loader paint
+  setTimeout(runAnalysis, 400);
 });
 
 function runAnalysis() {
@@ -309,11 +342,10 @@ function runAnalysis() {
   const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
   const w = canvas.width, h = canvas.height;
 
-  // Column scan for green/red clusters
   const colInfo = [];
   for (let x = 0; x < w; x++) {
     let minY = null, maxY = null, greenCount = 0, redCount = 0;
-    for (let y = 0; y < h; y += 1) {
+    for (let y = 0; y < h; y++) {
       const i = (y * w + x) * 4;
       const r = imgData[i], g = imgData[i+1], b = imgData[i+2];
       const isGreen = (g - r > 15) && g > 60;
@@ -327,7 +359,6 @@ function runAnalysis() {
     colInfo.push({x, minY, maxY, greenCount, redCount});
   }
 
-  // Group columns into candles (contiguous colored columns, tolerate 1px gaps)
   const candles = [];
   let i = 0;
   while (i < colInfo.length) {
@@ -362,140 +393,14 @@ function runAnalysis() {
     return;
   }
 
-  // Use last 30 max
-  const recent = candles.slice(-30);
+  const recent = candles.slice(-25);
   const n = recent.length;
   const avgRange = recent.reduce((s,c) => s + c.range, 0) / n;
 
-  // Close proxy: green -> near top(minY), red -> near bottom(maxY); invert so higher price = higher value
   const overallMaxY = Math.max(...recent.map(c => c.maxY));
   const closesProxy = recent.map(c => {
     const closeY = c.color === 'green' ? c.minY : c.maxY;
-    return overallMaxY - closeY; // ascending = bullish
+    return overallMaxY - closeY;
   });
 
-  // Linear regression slope
-  const xs = closesProxy.map((_,idx) => idx);
-  const meanX = xs.reduce((a,b)=>a+b,0)/n;
-  const meanY = closesProxy.reduce((a,b)=>a+b,0)/n;
-  let num=0, den=0;
-  for (let k=0;k<n;k++){ num += (xs[k]-meanX)*(closesProxy[k]-meanY); den += (xs[k]-meanX)**2; }
-  const slope = den === 0 ? 0 : num/den;
-  const normSlope = slope / (avgRange || 1); // normalize by typical candle size
-
-  // Up/down count (last 10)
-  const last10 = recent.slice(-10);
-  const upCount = last10.filter(c => c.color === 'green').length;
-  const downCount = last10.length - upCount;
-
-  // Momentum: last 3 vs prior 3 avg range
-  const last3 = recent.slice(-3), prior3 = recent.slice(-6,-3);
-  const last3Avg = last3.reduce((s,c)=>s+c.range,0)/(last3.length||1);
-  const prior3Avg = prior3.length ? prior3.reduce((s,c)=>s+c.range,0)/prior3.length : last3Avg;
-  const expanding = last3Avg > prior3Avg * 1.1;
-  const contracting = last3Avg < prior3Avg * 0.7;
-
-  // Doji ratio (indecision)
-  const dojiCount = recent.filter(c => c.range < avgRange * 0.35).length;
-  const dojiRatio = dojiCount / n;
-
-  // ---- Scoring ----
-  const trendScore = Math.max(-40, Math.min(40, normSlope * 25));
-  const countScore = ((upCount - downCount) / last10.length) * 30;
-  let momentumScore = 0;
-  const trendDir = (trendScore + countScore) >= 0 ? 1 : -1;
-  if (expanding) momentumScore = 15 * trendDir;
-  else if (contracting) momentumScore = -10;
-  const indecisionPenalty = dojiRatio > 0.4 ? -15 : 0;
-
-  const rawScore = trendScore + countScore + momentumScore + indecisionPenalty;
-  const confidence = Math.min(96, Math.max(4, Math.round(50 + rawScore)));
-  const isBullish = rawScore >= 0;
-  const biasLabel = confidence < 58 ? 'Neutral' : (isBullish ? 'Bullish' : 'Bearish');
-
-  // ---- ATR estimate (index points) ----
-  const chartHeightPx = Math.max(...recent.map(c=>c.maxY)) - Math.min(...recent.map(c=>c.minY)) || 1;
-  const spot = parseFloat(spotInput.value);
-  const visibleRangePct = selectedIndex === 'NIFTY' ? 0.008 : 0.012;
-  const visibleRange = spot * visibleRangePct;
-  const atrPoints = Math.round((avgRange / chartHeightPx) * visibleRange * (chartHeightPx/avgRange > 1 ? 1 : 1));
-  const atrFinal = Math.max(selectedIndex === 'NIFTY' ? 15 : 40, atrPoints);
-
-  renderResults({confidence, isBullish, biasLabel, spot, atrFinal, trendScore, countScore, momentumScore, indecisionPenalty, upCount, downCount, dojiRatio});
-}
-
-function renderResults(d) {
-  document.getElementById('loader').style.display = 'none';
-  document.getElementById('resetBtn').style.display = 'block';
-  const results = document.getElementById('results');
-  results.style.display = 'block';
-
-  const ring = document.getElementById('confRing');
-  ring.textContent = d.confidence + '%';
-  const ringColor = d.confidence >= 65 ? (d.isBullish ? '#22C55E' : '#EF4444') : '#94A3B8';
-  ring.style.background = `conic-gradient(${ringColor} ${d.confidence*3.6}deg, #1E3A63 0deg)`;
-  ring.style.color = '#fff';
-
-  const badge = document.getElementById('biasBadge');
-  badge.textContent = d.biasLabel;
-  badge.className = 'bias-badge ' + (d.confidence < 58 ? 'bias-neutral' : (d.isBullish ? 'bias-bullish' : 'bias-bearish'));
-  document.getElementById('confLabel').textContent = `Confidence: ${d.confidence}%`;
-
-  const step = selectedIndex === 'NIFTY' ? 50 : 100;
-  const atm = Math.round(d.spot / step) * step;
-  const tradeContent = document.getElementById('tradeContent');
-  const reasoning = document.getElementById('reasoning');
-
-  if (d.confidence < 65) {
-    tradeContent.innerHTML = `
-      <div class="wait-box">
-        <div class="icon">⏳</div>
-        <h3>No Clear Edge — Wait</h3>
-        <p>Signal isn't strong enough for a confident strike call right now.<br>
-        Re-check on the next candle close or a fresh screenshot.</p>
-      </div>`;
-  } else {
-    const optType = d.isBullish ? 'CE' : 'PE';
-    const slPts = Math.round(d.atrFinal * 0.6);
-    const tgtPts = Math.round(d.atrFinal * 1.6);
-    const slLevel = d.isBullish ? Math.round(d.spot - slPts) : Math.round(d.spot + slPts);
-    const tgtLevel = d.isBullish ? Math.round(d.spot + tgtPts) : Math.round(d.spot - tgtPts);
-
-    tradeContent.innerHTML = `
-      <div class="strike-hero">
-        <div class="type">${selectedIndex} · ${optType === 'CE' ? 'BUY CALL' : 'BUY PUT'}</div>
-        <div class="value ${optType.toLowerCase()}">${atm} ${optType}</div>
-        <div class="type">${d.confidence >= 80 ? 'High conviction' : 'Moderate — size down'}</div>
-      </div>
-      <div class="levels">
-        <div class="level-box entry"><div class="lbl">Entry (Spot)</div><div class="val">${Math.round(d.spot)}</div></div>
-        <div class="level-box sl"><div class="lbl">SL</div><div class="val">${slLevel}</div></div>
-        <div class="level-box tgt"><div class="lbl">Target</div><div class="val">${tgtLevel}</div></div>
-      </div>
-      <p style="font-size:11px; color:var(--gray); margin-top:10px; text-align:center;">
-        Levels are index points — map to option premium via your broker before placing the trade.
-      </p>`;
-  }
-
-  reasoning.innerHTML = `
-    <div class="reason-row"><span class="reason-label">Trend strength</span>
-      <span class="reason-val ${d.trendScore>=0?'pos':'neg'}">${d.trendScore>=0?'+':''}${d.trendScore.toFixed(0)}</span></div>
-    <div class="reason-row"><span class="reason-label">Candle bias (last 10)</span>
-      <span class="reason-val">${d.upCount} up / ${d.downCount} down</span></div>
-    <div class="reason-row"><span class="reason-label">Momentum</span>
-      <span class="reason-val ${d.momentumScore>=0?'pos':'neg'}">${d.momentumScore>=0?'+':''}${d.momentumScore.toFixed(0)}</span></div>
-    <div class="reason-row"><span class="reason-label">Indecision (doji ratio)</span>
-      <span class="reason-val">${(d.dojiRatio*100).toFixed(0)}%</span></div>
-    <div class="reason-row"><span class="reason-label">Est. ATR</span>
-      <span class="reason-val">${d.atrFinal} pts</span></div>
-  `;
-
-  results.scrollIntoView({behavior:'smooth'});
-}
-
-document.getElementById('resetBtn').addEventListener('click', () => {
-  location.reload();
-});
-</script>
-</body>
-</html>
+  const xs = closesProxy.map((_
