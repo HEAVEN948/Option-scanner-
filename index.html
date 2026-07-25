@@ -6,31 +6,40 @@
 <title>OptiStrike — Marak Innovation</title>
 <link id="manifest-link" rel="manifest">
 <meta name="theme-color" content="#0B1E3D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="OptiStrike">
 <style>
   :root{
     --navy:#0B1E3D; --navy-dark:#071429; --blue1:#2563EB; --blue2:#60A5FA;
     --amber:#F59E0B; --green:#22C55E; --red:#EF4444; --gray:#94A3B8;
     --panel:#101F3D; --panel2:#132849; --border:#1E3A63;
   }
-  *{box-sizing:border-box; margin:0; padding:0;}
+  *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+  html,body{overscroll-behavior-y:none;}
   body{
     background:linear-gradient(180deg,#071429 0%,#0B1E3D 100%);
     color:#E2E8F0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-    min-height:100vh; padding-bottom:40px;
+    min-height:100vh; padding-bottom:40px; -webkit-user-select:none; user-select:none;
   }
+  input{-webkit-user-select:text; user-select:text;}
   header{
     display:flex; align-items:center; justify-content:space-between;
-    padding:16px 20px; border-bottom:1px solid var(--border);
-    position:sticky; top:0; background:rgba(7,20,41,0.95); backdrop-filter:blur(8px); z-index:10;
+    padding:14px 16px; border-bottom:1px solid var(--border);
+    position:sticky; top:0; background:rgba(7,20,41,0.97); backdrop-filter:blur(8px); z-index:10;
   }
   .brand{display:flex; align-items:center; gap:10px;}
   .brand-name{font-size:13px; font-weight:700; letter-spacing:0.5px; line-height:1.2;}
   .brand-name span{display:block; font-size:10px; color:var(--gray); font-weight:500;}
   #installBtn{
-    display:none; background:linear-gradient(135deg,var(--blue1),var(--blue2));
-    color:#fff; border:none; padding:8px 16px; border-radius:20px; font-size:13px;
-    font-weight:600; cursor:pointer;
+    display:flex; align-items:center; gap:6px;
+    background:linear-gradient(135deg,var(--blue1),var(--blue2));
+    color:#fff; border:none; padding:9px 14px; border-radius:20px; font-size:12.5px;
+    font-weight:700; cursor:pointer; box-shadow:0 2px 10px rgba(37,99,235,0.35);
+    white-space:nowrap;
   }
+  #installBtn:active{transform:scale(0.96);}
+  #installBtn.installed{background:var(--panel2); color:var(--gray); box-shadow:none;}
   main{max-width:520px; margin:0 auto; padding:20px 16px;}
   h1{font-size:22px; font-weight:800; margin-bottom:4px;}
   .subtitle{color:var(--gray); font-size:13px; margin-bottom:20px;}
@@ -137,6 +146,33 @@
   .short-card{border:1px solid rgba(245,158,11,0.3);}
   .short-card .strike-hero .value{color:var(--amber);}
   .theta-note{font-size:11.5px; color:var(--gray); background:var(--panel2); border-radius:8px; padding:10px; margin-top:10px; line-height:1.5;}
+
+  .modal-overlay{
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6);
+    z-index:100; align-items:flex-end; justify-content:center;
+  }
+  .modal-overlay.show{display:flex;}
+  .modal-sheet{
+    background:var(--panel); border:1px solid var(--border); border-radius:20px 20px 0 0;
+    padding:22px 20px 28px; width:100%; max-width:520px; animation:slideUp 0.25s ease;
+  }
+  @keyframes slideUp{from{transform:translateY(30px); opacity:0;} to{transform:translateY(0); opacity:1;}}
+  .modal-sheet h3{font-size:17px; margin-bottom:6px;}
+  .modal-sheet p{font-size:13px; color:var(--gray); margin-bottom:14px; line-height:1.5;}
+  .modal-steps{list-style:none;}
+  .modal-steps li{
+    display:flex; gap:10px; align-items:flex-start; font-size:13.5px; padding:9px 0;
+    border-bottom:1px solid var(--border);
+  }
+  .modal-steps li:last-child{border-bottom:none;}
+  .step-num{
+    width:22px; height:22px; border-radius:50%; background:var(--blue1); color:#fff;
+    font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .modal-close{
+    width:100%; padding:13px; border-radius:12px; border:1px solid var(--border);
+    background:var(--panel2); color:#fff; font-weight:700; font-size:14px; margin-top:16px; cursor:pointer;
+  }
 </style>
 </head>
 <body>
@@ -156,7 +192,7 @@
     </svg>
     <div class="brand-name">OptiStrike<span>Marak Innovation</span></div>
   </div>
-  <button id="installBtn">Install App</button>
+  <button id="installBtn">⬇ Install App</button>
 </header>
 
 <main>
@@ -234,8 +270,16 @@
   <button class="btn-secondary" id="resetBtn" style="display:none;">Analyze Another Chart</button>
 </main>
 
+<div class="modal-overlay" id="installModal">
+  <div class="modal-sheet">
+    <h3 id="modalTitle">Install OptiStrike</h3>
+    <p id="modalSub">Add this app to your home screen for quick, full-screen access.</p>
+    <ul class="modal-steps" id="modalSteps"></ul>
+    <button class="modal-close" id="modalClose">Got it</button>
+  </div>
+</div>
+
 <script>
-// ---------- Branding / PWA ----------
 const iconSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
   <stop offset="0%" stop-color="#60A5FA"/><stop offset="100%" stop-color="#2563EB"/></linearGradient></defs>
@@ -245,6 +289,8 @@ const iconSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
 const iconURL = 'data:image/svg+xml;base64,' + btoa(iconSVG);
 const favLink = document.createElement('link'); favLink.rel='icon'; favLink.href=iconURL;
 document.head.appendChild(favLink);
+const appleTouch = document.createElement('link'); appleTouch.rel='apple-touch-icon'; appleTouch.href=iconURL;
+document.head.appendChild(appleTouch);
 
 const manifest = {
   name: "OptiStrike - Marak Innovation",
@@ -263,54 +309,134 @@ const swCode = `
 `;
 const swBlob = new Blob([swCode], {type:'application/javascript'});
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(()=>{});
+  navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(function(){});
 }
 
-let deferredPrompt;
+let deferredPrompt = null;
 const installBtn = document.getElementById('installBtn');
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault(); deferredPrompt = e; installBtn.style.display = 'block';
-});
-installBtn.addEventListener('click', async () => {
-  if (!deferredPrompt) return;
-  deferredPrompt.prompt();
-  await deferredPrompt.userChoice;
-  deferredPrompt = null; installBtn.style.display = 'none';
+const installModal = document.getElementById('installModal');
+const modalSteps = document.getElementById('modalSteps');
+const modalTitle = document.getElementById('modalTitle');
+const modalSub = document.getElementById('modalSub');
+
+function isStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+function detectPlatform() {
+  const ua = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+  const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
+  const isAndroid = /Android/.test(ua);
+  if (isIOS && isSafari) return 'ios-safari';
+  if (isIOS) return 'ios-other';
+  if (isAndroid) return 'android';
+  return 'desktop';
+}
+
+function refreshInstallButton() {
+  if (isStandalone()) {
+    installBtn.textContent = '✓ Installed';
+    installBtn.classList.add('installed');
+  } else {
+    installBtn.textContent = '⬇ Install App';
+    installBtn.classList.remove('installed');
+  }
+}
+refreshInstallButton();
+window.addEventListener('DOMContentLoaded', refreshInstallButton);
+
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  deferredPrompt = e;
 });
 
-// ---------- State ----------
+window.addEventListener('appinstalled', function() {
+  deferredPrompt = null;
+  refreshInstallButton();
+});
+
+function showManualInstructions() {
+  const platform = detectPlatform();
+  let steps = [];
+  if (platform === 'ios-safari') {
+    modalTitle.textContent = 'Install on iPhone/iPad';
+    steps = [
+      'Tap the Share icon at the bottom of Safari (the square with an arrow)',
+      'Scroll down and tap "Add to Home Screen"',
+      'Tap "Add" in the top right corner'
+    ];
+  } else if (platform === 'android') {
+    modalTitle.textContent = 'Install on Android';
+    steps = [
+      'Tap the ⋮ menu in the top right of your browser',
+      'Tap "Install app" or "Add to Home screen"',
+      'Confirm by tapping "Install"'
+    ];
+  } else {
+    modalTitle.textContent = 'Install OptiStrike';
+    steps = [
+      'Open the browser menu (⋮ or ⋯) in the top corner',
+      'Look for "Install OptiStrike" or "Add to Home Screen"',
+      'Confirm to add it — it will open full-screen like a native app'
+    ];
+  }
+  modalSub.textContent = 'Add this app to your home screen for quick, full-screen access.';
+  modalSteps.innerHTML = steps.map(function(s, idx) {
+    return '<li><span class="step-num">' + (idx+1) + '</span><span>' + s + '</span></li>';
+  }).join('');
+  installModal.classList.add('show');
+}
+
+installBtn.addEventListener('click', async function() {
+  if (isStandalone()) { return; }
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    const choice = await deferredPrompt.userChoice;
+    if (choice.outcome === 'accepted') { deferredPrompt = null; }
+  } else {
+    showManualInstructions();
+  }
+});
+
+document.getElementById('modalClose').addEventListener('click', function() {
+  installModal.classList.remove('show');
+});
+installModal.addEventListener('click', function(e) {
+  if (e.target === installModal) installModal.classList.remove('show');
+});
+
 let selectedIndex = 'NIFTY';
 let uploadedImage = null;
 
-document.querySelectorAll('.toggle-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+document.querySelectorAll('.toggle-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.toggle-btn').forEach(function(b) { b.classList.remove('active'); });
     btn.classList.add('active');
     selectedIndex = btn.dataset.index;
   });
 });
 
-// ---------- Upload handling ----------
 const uploadZone = document.getElementById('uploadZone');
 const fileInput = document.getElementById('fileInput');
 const previewWrap = document.getElementById('previewWrap');
 const preview = document.getElementById('preview');
 const analyzeBtn = document.getElementById('analyzeBtn');
 
-uploadZone.addEventListener('click', () => fileInput.click());
-uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
-uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
-uploadZone.addEventListener('drop', e => {
+uploadZone.addEventListener('click', function() { fileInput.click(); });
+uploadZone.addEventListener('dragover', function(e) { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', function() { uploadZone.classList.remove('dragover'); });
+uploadZone.addEventListener('drop', function(e) {
   e.preventDefault(); uploadZone.classList.remove('dragover');
   if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
 });
-fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+fileInput.addEventListener('change', function(e) { if (e.target.files[0]) handleFile(e.target.files[0]); });
 
 function handleFile(file) {
   const reader = new FileReader();
-  reader.onload = (e) => {
+  reader.onload = function(e) {
     const img = new Image();
-    img.onload = () => { uploadedImage = img; checkReady(); };
+    img.onload = function() { uploadedImage = img; checkReady(); };
     img.src = e.target.result;
     preview.src = e.target.result;
     previewWrap.style.display = 'block';
@@ -324,8 +450,7 @@ function checkReady() {
   analyzeBtn.disabled = !(uploadedImage && spotInput.value && parseFloat(spotInput.value) > 0);
 }
 
-// ---------- Core analysis ----------
-analyzeBtn.addEventListener('click', () => {
+analyzeBtn.addEventListener('click', function() {
   document.getElementById('loader').style.display = 'block';
   analyzeBtn.style.display = 'none';
   setTimeout(runAnalysis, 400);
@@ -346,8 +471,8 @@ function runAnalysis() {
   for (let x = 0; x < w; x++) {
     let minY = null, maxY = null, greenCount = 0, redCount = 0;
     for (let y = 0; y < h; y++) {
-      const i = (y * w + x) * 4;
-      const r = imgData[i], g = imgData[i+1], b = imgData[i+2];
+      const idx = (y * w + x) * 4;
+      const r = imgData[idx], g = imgData[idx+1], b = imgData[idx+2];
       const isGreen = (g - r > 15) && g > 60;
       const isRed = (r - g > 15) && r > 60;
       if (isGreen || isRed) {
@@ -356,7 +481,7 @@ function runAnalysis() {
         if (isGreen) greenCount++; else redCount++;
       }
     }
-    colInfo.push({x, minY, maxY, greenCount, redCount});
+    colInfo.push({x: x, minY: minY, maxY: maxY, greenCount: greenCount, redCount: redCount});
   }
 
   const candles = [];
@@ -379,7 +504,7 @@ function runAnalysis() {
       j++;
     }
     candles.push({
-      xStart: i, xEnd: j-1, minY, maxY,
+      xStart: i, xEnd: j-1, minY: minY, maxY: maxY,
       color: gTotal >= rTotal ? 'green' : 'red',
       range: maxY - minY
     });
@@ -395,12 +520,238 @@ function runAnalysis() {
 
   const recent = candles.slice(-25);
   const n = recent.length;
-  const avgRange = recent.reduce((s,c) => s + c.range, 0) / n;
+  const avgRange = recent.reduce(function(s,c) { return s + c.range; }, 0) / n;
 
-  const overallMaxY = Math.max(...recent.map(c => c.maxY));
-  const closesProxy = recent.map(c => {
+  const overallMaxY = Math.max.apply(null, recent.map(function(c) { return c.maxY; }));
+  const overallMinY = Math.min.apply(null, recent.map(function(c) { return c.minY; }));
+  const closesProxy = recent.map(function(c) {
     const closeY = c.color === 'green' ? c.minY : c.maxY;
     return overallMaxY - closeY;
   });
 
-  const xs = closesProxy.map((_
+  const xs = closesProxy.map(function(_, idx) { return idx; });
+  const meanX = xs.reduce(function(a,b) { return a+b; }, 0) / n;
+  const meanY = closesProxy.reduce(function(a,b) { return a+b; }, 0) / n;
+  let num = 0, den = 0;
+  for (let k = 0; k < n; k++) {
+    num += (xs[k]-meanX) * (closesProxy[k]-meanY);
+    den += Math.pow(xs[k]-meanX, 2);
+  }
+  const slope = den === 0 ? 0 : num/den;
+  const normSlope = slope / (avgRange || 1);
+
+  const last10 = recent.slice(-10);
+  const upCount = last10.filter(function(c) { return c.color === 'green'; }).length;
+  const downCount = last10.length - upCount;
+
+  const last3 = recent.slice(-3), prior3 = recent.slice(-6,-3);
+  const last3Avg = last3.reduce(function(s,c) { return s+c.range; }, 0) / (last3.length || 1);
+  const prior3Avg = prior3.length ? prior3.reduce(function(s,c) { return s+c.range; }, 0) / prior3.length : last3Avg;
+  const expanding = last3Avg > prior3Avg * 1.1;
+  const contracting = last3Avg < prior3Avg * 0.7;
+
+  const dojiCount = recent.filter(function(c) { return c.range < avgRange * 0.35; }).length;
+  const dojiRatio = dojiCount / n;
+
+  const trendScore = Math.max(-40, Math.min(40, normSlope * 25));
+  const countScore = ((upCount - downCount) / last10.length) * 30;
+  const trendDirRaw = trendScore + countScore;
+  let momentumScore = 0;
+  const trendDir = trendDirRaw >= 0 ? 1 : -1;
+  if (expanding) momentumScore = 15 * trendDir;
+  else if (contracting) momentumScore = -10;
+
+  const trendIsStrong = Math.abs(trendDirRaw) > 18;
+  const indecisionPenalty = (dojiRatio > 0.4 && !trendIsStrong) ? -15 : 0;
+
+  const rawScore = trendScore + countScore + momentumScore + indecisionPenalty;
+  const confidence = Math.min(96, Math.max(4, Math.round(50 + rawScore)));
+  const isBullish = rawScore >= 0;
+  const biasLabel = confidence < 58 ? 'Neutral' : (isBullish ? 'Bullish' : 'Bearish');
+
+  const pivotHighsY = [];
+  const pivotLowsY = [];
+  for (let k = 2; k < recent.length - 2; k++) {
+    const c = recent[k];
+    const isHigh = c.minY < recent[k-1].minY && c.minY < recent[k-2].minY &&
+                   c.minY < recent[k+1].minY && c.minY < recent[k+2].minY;
+    const isLow = c.maxY > recent[k-1].maxY && c.maxY > recent[k-2].maxY &&
+                  c.maxY > recent[k+1].maxY && c.maxY > recent[k+2].maxY;
+    if (isHigh) pivotHighsY.push(c.minY);
+    if (isLow) pivotLowsY.push(c.maxY);
+  }
+
+  const chartHeightPx = (overallMaxY - overallMinY) || 1;
+  const spot = parseFloat(spotInput.value);
+  const visibleRangePct = selectedIndex === 'NIFTY' ? 0.008 : 0.012;
+  const visibleRange = spot * visibleRangePct;
+  const atrPoints = Math.round((avgRange / chartHeightPx) * visibleRange);
+  const atrFinal = Math.max(selectedIndex === 'NIFTY' ? 15 : 40, atrPoints);
+  const pxToPoints = visibleRange / chartHeightPx;
+
+  const lastCandle = recent[recent.length - 1];
+  const lastCloseY = lastCandle.color === 'green' ? lastCandle.minY : lastCandle.maxY;
+
+  function yToPrice(y) {
+    return spot + (lastCloseY - y) * pxToPoints;
+  }
+
+  let resistanceLevels = pivotHighsY.map(yToPrice).filter(function(p) { return p > spot; });
+  let supportLevels = pivotLowsY.map(yToPrice).filter(function(p) { return p < spot; });
+  const resistance = resistanceLevels.length ? Math.round(Math.min.apply(null, resistanceLevels)) : Math.round(spot + atrFinal * 1.2);
+  const support = supportLevels.length ? Math.round(Math.max.apply(null, supportLevels)) : Math.round(spot - atrFinal * 1.2);
+
+  const expiryVal = document.getElementById('expiryDate').value;
+  let dte = null;
+  if (expiryVal) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const expiry = new Date(expiryVal); expiry.setHours(0,0,0,0);
+    dte = Math.round((expiry - today) / (1000*60*60*24));
+  }
+
+  renderResults({
+    confidence: confidence, isBullish: isBullish, biasLabel: biasLabel, spot: spot, atrFinal: atrFinal,
+    trendScore: trendScore, countScore: countScore, momentumScore: momentumScore, indecisionPenalty: indecisionPenalty,
+    upCount: upCount, downCount: downCount, dojiRatio: dojiRatio,
+    resistance: resistance, support: support, dte: dte
+  });
+}
+
+function renderResults(d) {
+  document.getElementById('loader').style.display = 'none';
+  document.getElementById('resetBtn').style.display = 'block';
+  const results = document.getElementById('results');
+  results.style.display = 'block';
+
+  const ring = document.getElementById('confRing');
+  ring.textContent = d.confidence + '%';
+  const ringColor = d.confidence >= 65 ? (d.isBullish ? '#22C55E' : '#EF4444') : '#94A3B8';
+  ring.style.background = 'conic-gradient(' + ringColor + ' ' + (d.confidence*3.6) + 'deg, #1E3A63 0deg)';
+
+  const badge = document.getElementById('biasBadge');
+  badge.textContent = d.biasLabel;
+  badge.className = 'bias-badge ' + (d.confidence < 58 ? 'bias-neutral' : (d.isBullish ? 'bias-bullish' : 'bias-bearish'));
+  document.getElementById('confLabel').textContent = 'Confidence: ' + d.confidence + '%';
+
+  document.getElementById('resVal').textContent = d.resistance;
+  document.getElementById('supVal').textContent = d.support;
+
+  const step = selectedIndex === 'NIFTY' ? 50 : 100;
+  const atm = Math.round(d.spot / step) * step;
+
+  const dteWrap = document.getElementById('dteBannerWrap');
+  const warnWrap = document.getElementById('warnBannerWrap');
+  dteWrap.innerHTML = '';
+  warnWrap.innerHTML = '';
+
+  let highDecay = false;
+  if (d.dte !== null) {
+    if (d.dte <= 0) {
+      highDecay = true;
+      dteWrap.innerHTML = '<div class="dte-banner">' +
+        '<span>⏱ Expiry today — theta decay is high, needs a fast move</span>' +
+        '<span class="dte-num">0 DTE</span></div>';
+    } else if (d.dte === 1) {
+      highDecay = true;
+      dteWrap.innerHTML = '<div class="dte-banner">' +
+        '<span>⏱ Expiry tomorrow — decay accelerating</span>' +
+        '<span class="dte-num">1 DTE</span></div>';
+    } else {
+      dteWrap.innerHTML = '<div class="dte-banner">' +
+        '<span>⏱ Time to expiry</span>' +
+        '<span class="dte-num">' + d.dte + ' DTE</span></div>';
+    }
+  }
+
+  if (highDecay && d.confidence >= 65 && d.confidence < 75) {
+    warnWrap.innerHTML = '<div class="warn-banner">' +
+      '<span>⚠️</span><span><strong>Risky combo:</strong> 0-1 DTE with only moderate confidence. ' +
+      'Theta decay can eat a correct-but-slow move. Consider skipping, using a smaller size, or ' +
+      'favoring the short/sell setup below instead of buying premium.</span></div>';
+  }
+
+  const tradeContent = document.getElementById('tradeContent');
+  const reasoning = document.getElementById('reasoning');
+  const shortCard = document.getElementById('shortCard');
+  const shortContent = document.getElementById('shortContent');
+  const shortNote = document.getElementById('shortNote');
+
+  if (d.confidence < 65) {
+    tradeContent.innerHTML =
+      '<div class="wait-box"><div class="icon">⏳</div>' +
+      '<h3>No Clear Edge — Wait</h3>' +
+      '<p>Signal is not strong enough for a confident strike call right now.<br>' +
+      'Re-check on the next candle close or a fresh screenshot.</p></div>';
+    shortCard.style.display = 'none';
+  } else {
+    const optType = d.isBullish ? 'CE' : 'PE';
+    let slPts = Math.round(d.atrFinal * 0.6);
+    let tgtPts = Math.round(d.atrFinal * 1.6);
+    if (highDecay) tgtPts = Math.round(tgtPts * 0.7);
+
+    const slLevel = d.isBullish ? Math.round(d.spot - slPts) : Math.round(d.spot + slPts);
+    const tgtLevel = d.isBullish ? Math.round(d.spot + tgtPts) : Math.round(d.spot - tgtPts);
+
+    tradeContent.innerHTML =
+      '<div class="strike-hero">' +
+      '<div class="type">' + selectedIndex + ' · ' + (optType === 'CE' ? 'BUY CALL' : 'BUY PUT') + '</div>' +
+      '<div class="value ' + optType.toLowerCase() + '">' + atm + ' ' + optType + '</div>' +
+      '<div class="tag">' + (d.confidence >= 80 ? 'High conviction' : 'Moderate — size down') + '</div></div>' +
+      '<div class="levels">' +
+      '<div class="level-box entry"><div class="lbl">Entry (Spot)</div><div class="val">' + Math.round(d.spot) + '</div></div>' +
+      '<div class="level-box sl"><div class="lbl">SL</div><div class="val">' + slLevel + '</div></div>' +
+      '<div class="level-box tgt"><div class="lbl">Target</div><div class="val">' + tgtLevel + '</div></div>' +
+      '</div>' +
+      '<p style="font-size:11px; color:var(--gray); margin-top:10px; text-align:center;">' +
+      'Levels are index points — map to option premium via your broker before placing the trade.' +
+      (highDecay ? ' Target tightened for fast decay.' : '') + '</p>';
+
+    shortCard.style.display = 'block';
+    const shortType = d.isBullish ? 'PE' : 'CE';
+    const shortLabel = d.isBullish ? 'SELL PE' : 'SELL CE';
+    const shortStrike = d.isBullish
+      ? Math.round(d.support / step) * step
+      : Math.round(d.resistance / step) * step;
+    const shortSlPts = Math.round(d.atrFinal * 0.9);
+    const shortTgtPts = Math.round(d.atrFinal * 0.5);
+    const shortSl = d.isBullish ? Math.round(d.spot - shortSlPts) : Math.round(d.spot + shortSlPts);
+    const shortTgt = d.isBullish ? Math.round(d.spot + shortTgtPts) : Math.round(d.spot - shortTgtPts);
+
+    shortContent.innerHTML =
+      '<div class="strike-hero">' +
+      '<div class="type">' + selectedIndex + ' · ' + shortLabel + '</div>' +
+      '<div class="value">' + shortStrike + ' ' + shortType + '</div>' +
+      '<div class="tag">Premium collection · theta works for you</div></div>' +
+      '<div class="levels">' +
+      '<div class="level-box entry"><div class="lbl">Entry (Spot)</div><div class="val">' + Math.round(d.spot) + '</div></div>' +
+      '<div class="level-box sl"><div class="lbl">Exit if spot hits</div><div class="val">' + shortSl + '</div></div>' +
+      '<div class="level-box tgt"><div class="lbl">Book profit near</div><div class="val">' + shortTgt + '</div></div>' +
+      '</div>';
+
+    shortNote.innerHTML = 'Short/sell positions have <strong>capped profit, uncapped risk</strong> if unhedged. ' +
+      'The "Exit if spot hits" level is your hard stop — spot moving that far against your bias means the short strike ' +
+      'is under threat and margin calls can escalate fast. Consider hedging with a further OTM buy (creating a spread) ' +
+      'to define your max loss, rather than running a naked short.';
+  }
+
+  reasoning.innerHTML =
+    '<div class="reason-row"><span class="reason-label">Trend strength</span>' +
+    '<span class="reason-val ' + (d.trendScore>=0?'pos':'neg') + '">' + (d.trendScore>=0?'+':'') + d.trendScore.toFixed(0) + '</span></div>' +
+    '<div class="reason-row"><span class="reason-label">Candle bias (last 10)</span>' +
+    '<span class="reason-val">' + d.upCount + ' up / ' + d.downCount + ' down</span></div>' +
+    '<div class="reason-row"><span class="reason-label">Momentum</span>' +
+    '<span class="reason-val ' + (d.momentumScore>=0?'pos':'neg') + '">' + (d.momentumScore>=0?'+':'') + d.momentumScore.toFixed(0) + '</span></div>' +
+    '<div class="reason-row"><span class="reason-label">Indecision (doji ratio)</span>' +
+    '<span class="reason-val">' + (d.dojiRatio*100).toFixed(0) + '%</span></div>' +
+    '<div class="reason-row"><span class="reason-label">Est. ATR</span>' +
+    '<span class="reason-val">' + d.atrFinal + ' pts</span></div>';
+
+  results.scrollIntoView({behavior:'smooth'});
+}
+
+document.getElementById('resetBtn').addEventListener('click', function() {
+  location.reload();
+});
+</script>
+</body>
+</html>
