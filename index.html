@@ -13,7 +13,7 @@
   :root{
     --navy:#0B1E3D; --navy-dark:#071429; --blue1:#2563EB; --blue2:#60A5FA;
     --amber:#F59E0B; --green:#22C55E; --red:#EF4444; --gray:#94A3B8;
-    --panel:#101F3D; --panel2:#132849; --border:#1E3A63;
+    --panel:#101F3D; --panel2:#132849; --border:#1E3A63; --purple:#A78BFA;
   }
   *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
   html,body{overscroll-behavior-y:none;}
@@ -173,6 +173,29 @@
     width:100%; padding:13px; border-radius:12px; border:1px solid var(--border);
     background:var(--panel2); color:#fff; font-weight:700; font-size:14px; margin-top:16px; cursor:pointer;
   }
+
+  .indicator-row{display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;}
+  .indicator-chip{
+    flex:1; min-width:90px; background:var(--panel2); border-radius:10px; padding:9px 10px; text-align:center;
+  }
+  .indicator-chip .lbl{font-size:9.5px; color:var(--gray); font-weight:700; text-transform:uppercase;}
+  .indicator-chip .val{font-size:13px; font-weight:800; margin-top:3px;}
+  .tag-row{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;}
+  .smc-tag{
+    display:flex; align-items:center; gap:6px; padding:8px 12px; border-radius:10px;
+    font-size:12.5px; font-weight:600; background:var(--panel2); border:1px solid var(--border);
+  }
+  .smc-tag.bullish{border-color:rgba(34,197,94,0.4); color:var(--green);}
+  .smc-tag.bearish{border-color:rgba(239,68,68,0.4); color:var(--red);}
+  .smc-tag.neutral{border-color:rgba(167,139,250,0.4); color:var(--purple);}
+  .smc-empty{color:var(--gray); font-size:12.5px; padding:6px 0;}
+  .pattern-hero{
+    display:flex; align-items:center; gap:14px; padding:14px; background:var(--panel2);
+    border-radius:12px;
+  }
+  .pattern-hero .pico{font-size:28px;}
+  .pattern-hero .pname{font-size:15px; font-weight:800;}
+  .pattern-hero .pdesc{font-size:11.5px; color:var(--gray); margin-top:2px;}
 </style>
 </head>
 <body>
@@ -246,6 +269,20 @@
         <div class="sr-box res"><div class="lbl">Resistance</div><div class="val" id="resVal">--</div></div>
         <div class="sr-box sup"><div class="lbl">Support</div><div class="val" id="supVal">--</div></div>
       </div>
+      <div class="indicator-row">
+        <div class="indicator-chip"><div class="lbl">EMA</div><div class="val" id="emaVal">--</div></div>
+        <div class="indicator-chip"><div class="lbl">Supertrend</div><div class="val" id="stVal">--</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Candlestick Pattern</h2>
+      <div id="patternWrap"></div>
+    </div>
+
+    <div class="card">
+      <h2>Smart Money Concepts</h2>
+      <div class="tag-row" id="smcWrap"></div>
     </div>
 
     <div class="card" id="tradeCard">
@@ -261,9 +298,10 @@
     </div>
 
     <div class="disclaimer">
-      ⚠️ Estimates only, derived from chart geometry (no live OI/IV data). Not investment advice
-      and not a profit guarantee. Short/sell option strategies carry theoretically unlimited risk if
-      unhedged — always use a strict SL and consider your broker's margin requirements before writing options.
+      ⚠️ Estimates only, derived from chart geometry (no live OI/IV data). SMC and pattern
+      detection are structural heuristics, not guaranteed institutional signals. Not investment
+      advice and not a profit guarantee. Short/sell option strategies carry theoretically unlimited
+      risk if unhedged — always use a strict SL.
     </div>
   </div>
 
@@ -322,7 +360,6 @@ const modalSub = document.getElementById('modalSub');
 function isStandalone() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
-
 function detectPlatform() {
   const ua = navigator.userAgent;
   const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
@@ -333,7 +370,6 @@ function detectPlatform() {
   if (isAndroid) return 'android';
   return 'desktop';
 }
-
 function refreshInstallButton() {
   if (isStandalone()) {
     installBtn.textContent = '✓ Installed';
@@ -345,17 +381,14 @@ function refreshInstallButton() {
 }
 refreshInstallButton();
 window.addEventListener('DOMContentLoaded', refreshInstallButton);
-
 window.addEventListener('beforeinstallprompt', function(e) {
   e.preventDefault();
   deferredPrompt = e;
 });
-
 window.addEventListener('appinstalled', function() {
   deferredPrompt = null;
   refreshInstallButton();
 });
-
 function showManualInstructions() {
   const platform = detectPlatform();
   let steps = [];
@@ -387,7 +420,6 @@ function showManualInstructions() {
   }).join('');
   installModal.classList.add('show');
 }
-
 installBtn.addEventListener('click', async function() {
   if (isStandalone()) { return; }
   if (deferredPrompt) {
@@ -398,7 +430,6 @@ installBtn.addEventListener('click', async function() {
     showManualInstructions();
   }
 });
-
 document.getElementById('modalClose').addEventListener('click', function() {
   installModal.classList.remove('show');
 });
@@ -456,6 +487,12 @@ analyzeBtn.addEventListener('click', function() {
   setTimeout(runAnalysis, 400);
 });
 
+function median(arr) {
+  const s = arr.slice().sort(function(a,b){ return a-b; });
+  const mid = Math.floor(s.length/2);
+  return s.length % 2 ? s[mid] : (s[mid-1]+s[mid])/2;
+}
+
 function runAnalysis() {
   const canvas = document.createElement('canvas');
   const maxW = 900;
@@ -488,8 +525,8 @@ function runAnalysis() {
   let i = 0;
   while (i < colInfo.length) {
     if (colInfo[i].minY === null) { i++; continue; }
-    let j = i, minY = colInfo[i].minY, maxY = colInfo[i].maxY;
-    let gTotal = 0, rTotal = 0, gap = 0;
+    let j = i, gTotal = 0, rTotal = 0, gap = 0;
+    const colMinYs = [], colMaxYs = [];
     while (j < colInfo.length) {
       if (colInfo[j].minY === null) {
         gap++;
@@ -497,16 +534,23 @@ function runAnalysis() {
         j++; continue;
       }
       gap = 0;
-      minY = Math.min(minY, colInfo[j].minY);
-      maxY = Math.max(maxY, colInfo[j].maxY);
+      colMinYs.push(colInfo[j].minY);
+      colMaxYs.push(colInfo[j].maxY);
       gTotal += colInfo[j].greenCount;
       rTotal += colInfo[j].redCount;
       j++;
     }
+    const bodyTop = median(colMinYs);
+    const bodyBottom = median(colMaxYs);
+    const wickTop = Math.min.apply(null, colMinYs);
+    const wickBottom = Math.max.apply(null, colMaxYs);
     candles.push({
-      xStart: i, xEnd: j-1, minY: minY, maxY: maxY,
+      xStart: i, xEnd: j-1,
+      bodyTop: bodyTop, bodyBottom: bodyBottom,
+      wickTop: wickTop, wickBottom: wickBottom,
       color: gTotal >= rTotal ? 'green' : 'red',
-      range: maxY - minY
+      range: wickBottom - wickTop,
+      bodySize: Math.max(1, bodyBottom - bodyTop)
     });
     i = j;
   }
@@ -522,13 +566,12 @@ function runAnalysis() {
   const n = recent.length;
   const avgRange = recent.reduce(function(s,c) { return s + c.range; }, 0) / n;
 
-  const overallMaxY = Math.max.apply(null, recent.map(function(c) { return c.maxY; }));
-  const overallMinY = Math.min.apply(null, recent.map(function(c) { return c.minY; }));
+  const overallMaxY = Math.max.apply(null, recent.map(function(c) { return c.wickBottom; }));
+  const overallMinY = Math.min.apply(null, recent.map(function(c) { return c.wickTop; }));
   const closesProxy = recent.map(function(c) {
-    const closeY = c.color === 'green' ? c.minY : c.maxY;
+    const closeY = c.color === 'green' ? c.bodyTop : c.bodyBottom;
     return overallMaxY - closeY;
   });
-
   const xs = closesProxy.map(function(_, idx) { return idx; });
   const meanX = xs.reduce(function(a,b) { return a+b; }, 0) / n;
   const meanY = closesProxy.reduce(function(a,b) { return a+b; }, 0) / n;
@@ -560,26 +603,8 @@ function runAnalysis() {
   const trendDir = trendDirRaw >= 0 ? 1 : -1;
   if (expanding) momentumScore = 15 * trendDir;
   else if (contracting) momentumScore = -10;
-
   const trendIsStrong = Math.abs(trendDirRaw) > 18;
   const indecisionPenalty = (dojiRatio > 0.4 && !trendIsStrong) ? -15 : 0;
-
-  const rawScore = trendScore + countScore + momentumScore + indecisionPenalty;
-  const confidence = Math.min(96, Math.max(4, Math.round(50 + rawScore)));
-  const isBullish = rawScore >= 0;
-  const biasLabel = confidence < 58 ? 'Neutral' : (isBullish ? 'Bullish' : 'Bearish');
-
-  const pivotHighsY = [];
-  const pivotLowsY = [];
-  for (let k = 2; k < recent.length - 2; k++) {
-    const c = recent[k];
-    const isHigh = c.minY < recent[k-1].minY && c.minY < recent[k-2].minY &&
-                   c.minY < recent[k+1].minY && c.minY < recent[k+2].minY;
-    const isLow = c.maxY > recent[k-1].maxY && c.maxY > recent[k-2].maxY &&
-                  c.maxY > recent[k+1].maxY && c.maxY > recent[k+2].maxY;
-    if (isHigh) pivotHighsY.push(c.minY);
-    if (isLow) pivotLowsY.push(c.maxY);
-  }
 
   const chartHeightPx = (overallMaxY - overallMinY) || 1;
   const spot = parseFloat(spotInput.value);
@@ -590,16 +615,212 @@ function runAnalysis() {
   const pxToPoints = visibleRange / chartHeightPx;
 
   const lastCandle = recent[recent.length - 1];
-  const lastCloseY = lastCandle.color === 'green' ? lastCandle.minY : lastCandle.maxY;
+  const lastCloseY = lastCandle.color === 'green' ? lastCandle.bodyTop : lastCandle.bodyBottom;
+  function yToPrice(y) { return spot + (lastCloseY - y) * pxToPoints; }
 
-  function yToPrice(y) {
-    return spot + (lastCloseY - y) * pxToPoints;
+  const px = recent.map(function(c) {
+    const openY = c.color === 'green' ? c.bodyBottom : c.bodyTop;
+    const closeY = c.color === 'green' ? c.bodyTop : c.bodyBottom;
+    return {
+      open: yToPrice(openY), close: yToPrice(closeY),
+      high: yToPrice(c.wickTop), low: yToPrice(c.wickBottom),
+      color: c.color, bodySize: c.bodySize * pxToPoints, range: c.range * pxToPoints
+    };
+  });
+  const pn = px.length;
+
+  const pivots = [];
+  for (let k = 2; k < pn - 2; k++) {
+    const c = recent[k];
+    const isHigh = c.wickTop < recent[k-1].wickTop && c.wickTop < recent[k-2].wickTop &&
+                   c.wickTop < recent[k+1].wickTop && c.wickTop < recent[k+2].wickTop;
+    const isLow = c.wickBottom > recent[k-1].wickBottom && c.wickBottom > recent[k-2].wickBottom &&
+                  c.wickBottom > recent[k+1].wickBottom && c.wickBottom > recent[k+2].wickBottom;
+    if (isHigh) pivots.push({idx:k, type:'high', price: px[k].high});
+    if (isLow) pivots.push({idx:k, type:'low', price: px[k].low});
   }
+  const pivotHighs = pivots.filter(function(p){ return p.type==='high'; });
+  const pivotLows = pivots.filter(function(p){ return p.type==='low'; });
 
-  let resistanceLevels = pivotHighsY.map(yToPrice).filter(function(p) { return p > spot; });
-  let supportLevels = pivotLowsY.map(yToPrice).filter(function(p) { return p < spot; });
+  const resistanceLevels = pivotHighs.map(function(p){return p.price;}).filter(function(p) { return p > spot; });
+  const supportLevels = pivotLows.map(function(p){return p.price;}).filter(function(p) { return p < spot; });
   const resistance = resistanceLevels.length ? Math.round(Math.min.apply(null, resistanceLevels)) : Math.round(spot + atrFinal * 1.2);
   const support = supportLevels.length ? Math.round(Math.max.apply(null, supportLevels)) : Math.round(spot - atrFinal * 1.2);
+
+  const emaPeriod = Math.max(5, Math.min(20, pn - 1));
+  const closesArr = px.map(function(c){ return c.close; });
+  let emaSeries = [];
+  const seed = closesArr.slice(0, emaPeriod).reduce(function(a,b){return a+b;},0) / emaPeriod;
+  emaSeries[emaPeriod-1] = seed;
+  const mult = 2 / (emaPeriod + 1);
+  for (let k = emaPeriod; k < pn; k++) {
+    emaSeries[k] = (closesArr[k] - emaSeries[k-1]) * mult + emaSeries[k-1];
+  }
+  const emaLast = emaSeries[pn-1];
+  const priceAboveEMA = closesArr[pn-1] > emaLast;
+
+  const stMult = 3;
+  const hl2 = px.map(function(c){ return (c.high + c.low) / 2; });
+  let finalUB = [], finalLB = [], stDir = [];
+  for (let k = 0; k < pn; k++) {
+    const basicUB = hl2[k] + stMult * atrFinal;
+    const basicLB = hl2[k] - stMult * atrFinal;
+    if (k === 0) {
+      finalUB[k] = basicUB; finalLB[k] = basicLB; stDir[k] = 1;
+    } else {
+      finalUB[k] = (basicUB < finalUB[k-1] || closesArr[k-1] > finalUB[k-1]) ? basicUB : finalUB[k-1];
+      finalLB[k] = (basicLB > finalLB[k-1] || closesArr[k-1] < finalLB[k-1]) ? basicLB : finalLB[k-1];
+      if (closesArr[k] <= finalUB[k]) stDir[k] = -1; else if (closesArr[k] >= finalLB[k]) stDir[k] = 1; else stDir[k] = stDir[k-1];
+    }
+  }
+  const supertrendBullish = stDir[pn-1] === 1;
+  const supertrendFlipped = pn > 2 && stDir[pn-1] !== stDir[pn-2];
+
+  function body(c){ return Math.abs(c.close - c.open); }
+  function upperWick(c){ return c.high - Math.max(c.open, c.close); }
+  function lowerWick(c){ return Math.min(c.open, c.close) - c.low; }
+  function isBull(c){ return c.close > c.open; }
+  function isBear(c){ return c.close < c.open; }
+
+  let pattern = null;
+  const c1 = px[pn-1], c2 = px[pn-2], c3 = px[pn-3];
+  const avgBody = px.slice(-10).reduce(function(s,c){return s+body(c);},0) / Math.min(10,pn);
+
+  if (c1 && body(c1) < avgBody * 0.15) {
+    pattern = {name:'Doji', dir:'neutral', desc:'Indecision — buyers and sellers balanced'};
+  }
+  if (c1 && c2 && isBear(c2) && isBull(c1) && c1.open < c2.close && c1.close > c2.open) {
+    pattern = {name:'Bullish Engulfing', dir:'bullish', desc:'Buyers overwhelmed the prior red candle'};
+  }
+  if (c1 && c2 && isBull(c2) && isBear(c1) && c1.open > c2.close && c1.close < c2.open) {
+    pattern = {name:'Bearish Engulfing', dir:'bearish', desc:'Sellers overwhelmed the prior green candle'};
+  }
+  if (c1 && lowerWick(c1) > body(c1) * 2 && upperWick(c1) < body(c1) * 0.5 && body(c1) > 0) {
+    pattern = {name:'Hammer', dir:'bullish', desc:'Long lower wick — rejection of lower prices'};
+  }
+  if (c1 && upperWick(c1) > body(c1) * 2 && lowerWick(c1) < body(c1) * 0.5 && body(c1) > 0) {
+    pattern = {name:'Shooting Star', dir:'bearish', desc:'Long upper wick — rejection of higher prices'};
+  }
+  if (c1 && c2 && c3 && isBear(c3) && body(c2) < avgBody*0.4 && isBull(c1) && c1.close > (c3.open+c3.close)/2) {
+    pattern = {name:'Morning Star', dir:'bullish', desc:'3-candle reversal — selling exhausted'};
+  }
+  if (c1 && c2 && c3 && isBull(c3) && body(c2) < avgBody*0.4 && isBear(c1) && c1.close < (c3.open+c3.close)/2) {
+    pattern = {name:'Evening Star', dir:'bearish', desc:'3-candle reversal — buying exhausted'};
+  }
+  if (c1 && c2 && c3 && isBull(c3) && isBull(c2) && isBull(c1) &&
+      c2.close > c3.close && c1.close > c2.close &&
+      c2.open > c3.open && c1.open > c2.open) {
+    pattern = {name:'Three White Soldiers', dir:'bullish', desc:'3 consecutive strong up candles'};
+  }
+  if (c1 && c2 && c3 && isBear(c3) && isBear(c2) && isBear(c1) &&
+      c2.close < c3.close && c1.close < c2.close &&
+      c2.open < c3.open && c1.open < c2.open) {
+    pattern = {name:'Three Black Crows', dir:'bearish', desc:'3 consecutive strong down candles'};
+  }
+  if (!pattern) pattern = {name:'No clear pattern', dir:'neutral', desc:'Last candles show no standard formation'};
+
+  const smcSignals = [];
+  let structureTrend = 'unclear';
+  if (pivotHighs.length >= 2 && pivotLows.length >= 2) {
+    const hh = pivotHighs[pivotHighs.length-1].price > pivotHighs[pivotHighs.length-2].price;
+    const hl = pivotLows[pivotLows.length-1].price > pivotLows[pivotLows.length-2].price;
+    const lh = pivotHighs[pivotHighs.length-1].price < pivotHighs[pivotHighs.length-2].price;
+    const ll = pivotLows[pivotLows.length-1].price < pivotLows[pivotLows.length-2].price;
+    if (hh && hl) structureTrend = 'up';
+    else if (lh && ll) structureTrend = 'down';
+  }
+
+  const lastPivotHigh = pivotHighs.length ? pivotHighs[pivotHighs.length-1] : null;
+  const lastPivotLow = pivotLows.length ? pivotLows[pivotLows.length-1] : null;
+  const lastClose = closesArr[pn-1];
+
+  if (structureTrend === 'up' && lastPivotHigh && lastClose > lastPivotHigh.price) {
+    smcSignals.push({type:'BOS', dir:'bullish', label:'Break of Structure (Bullish) — new high confirms uptrend'});
+  }
+  if (structureTrend === 'down' && lastPivotLow && lastClose < lastPivotLow.price) {
+    smcSignals.push({type:'BOS', dir:'bearish', label:'Break of Structure (Bearish) — new low confirms downtrend'});
+  }
+  if (structureTrend === 'up' && lastPivotLow && lastClose < lastPivotLow.price) {
+    smcSignals.push({type:'CHoCH', dir:'bearish', label:'Change of Character — uptrend structure broken, reversal risk'});
+  }
+  if (structureTrend === 'down' && lastPivotHigh && lastClose > lastPivotHigh.price) {
+    smcSignals.push({type:'CHoCH', dir:'bullish', label:'Change of Character — downtrend structure broken, reversal risk'});
+  }
+
+  let orderBlock = null;
+  for (let k = pn-2; k >= Math.max(1, pn-12); k--) {
+    const impulsive = px[k].range > avgRange * pxToPoints * 1.6;
+    if (impulsive) {
+      const prev = px[k-1];
+      if (isBull(px[k]) && isBear(prev)) {
+        orderBlock = {dir:'bullish', low: Math.min(prev.open, prev.close), high: Math.max(prev.open, prev.close)};
+        break;
+      }
+      if (isBear(px[k]) && isBull(prev)) {
+        orderBlock = {dir:'bearish', low: Math.min(prev.open, prev.close), high: Math.max(prev.open, prev.close)};
+        break;
+      }
+    }
+  }
+  if (orderBlock) {
+    smcSignals.push({
+      type:'OB', dir:orderBlock.dir,
+      label:(orderBlock.dir==='bullish'?'Bullish':'Bearish') + ' Order Block near ' + Math.round(orderBlock.low) + '–' + Math.round(orderBlock.high)
+    });
+  }
+
+  let fvg = null;
+  for (let k = pn-2; k >= Math.max(1, pn-10); k--) {
+    if (px[k-1] && px[k+1]) {
+      if (px[k-1].high < px[k+1].low) {
+        fvg = {dir:'bullish', low: px[k-1].high, high: px[k+1].low};
+        break;
+      }
+      if (px[k-1].low > px[k+1].high) {
+        fvg = {dir:'bearish', low: px[k+1].high, high: px[k-1].low};
+        break;
+      }
+    }
+  }
+  if (fvg) {
+    smcSignals.push({
+      type:'FVG', dir:fvg.dir,
+      label:(fvg.dir==='bullish'?'Bullish':'Bearish') + ' Fair Value Gap ' + Math.round(fvg.low) + '–' + Math.round(fvg.high)
+    });
+  }
+
+  let sweep = null;
+  const lastFew = px.slice(-4);
+  for (let k = 0; k < lastFew.length; k++) {
+    const c = lastFew[k];
+    if (lastPivotLow && c.low < lastPivotLow.price && c.close > lastPivotLow.price) {
+      sweep = {dir:'bullish', label:'Liquidity Sweep below ' + Math.round(lastPivotLow.price) + ' — sell-side stops grabbed, reversal signal'};
+    }
+    if (lastPivotHigh && c.high > lastPivotHigh.price && c.close < lastPivotHigh.price) {
+      sweep = {dir:'bearish', label:'Liquidity Sweep above ' + Math.round(lastPivotHigh.price) + ' — buy-side stops grabbed, reversal signal'};
+    }
+  }
+  if (sweep) smcSignals.push({type:'SWEEP', dir:sweep.dir, label:sweep.label});
+
+  let bonusScore = 0;
+  if (pattern.dir === 'bullish') bonusScore += 12;
+  if (pattern.dir === 'bearish') bonusScore -= 12;
+  bonusScore += priceAboveEMA ? 8 : -8;
+  bonusScore += supertrendBullish ? 10 : -10;
+  smcSignals.forEach(function(s) {
+    if (s.type === 'CHoCH') { bonusScore += (s.dir==='bullish' ? -6 : 6) * -1; }
+    else if (s.type === 'BOS') { bonusScore += s.dir === 'bullish' ? 8 : -8; }
+    else if (s.type === 'OB') { bonusScore += s.dir === 'bullish' ? 6 : -6; }
+    else if (s.type === 'FVG') { bonusScore += s.dir === 'bullish' ? 4 : -4; }
+    else if (s.type === 'SWEEP') { bonusScore += s.dir === 'bullish' ? 8 : -8; }
+  });
+  const hasCHoCH = smcSignals.some(function(s){ return s.type === 'CHoCH'; });
+
+  const rawScore = trendScore + countScore + momentumScore + indecisionPenalty + bonusScore;
+  let confidence = Math.min(97, Math.max(3, Math.round(50 + rawScore)));
+  if (hasCHoCH) confidence = Math.max(3, confidence - 12);
+  const isBullish = rawScore >= 0;
+  const biasLabel = confidence < 58 ? 'Neutral' : (isBullish ? 'Bullish' : 'Bearish');
 
   const expiryVal = document.getElementById('expiryDate').value;
   let dte = null;
@@ -613,7 +834,10 @@ function runAnalysis() {
     confidence: confidence, isBullish: isBullish, biasLabel: biasLabel, spot: spot, atrFinal: atrFinal,
     trendScore: trendScore, countScore: countScore, momentumScore: momentumScore, indecisionPenalty: indecisionPenalty,
     upCount: upCount, downCount: downCount, dojiRatio: dojiRatio,
-    resistance: resistance, support: support, dte: dte
+    resistance: resistance, support: support, dte: dte,
+    emaLast: emaLast, emaPeriod: emaPeriod, priceAboveEMA: priceAboveEMA,
+    supertrendBullish: supertrendBullish, supertrendFlipped: supertrendFlipped,
+    pattern: pattern, smcSignals: smcSignals, hasCHoCH: hasCHoCH
   });
 }
 
@@ -635,6 +859,26 @@ function renderResults(d) {
 
   document.getElementById('resVal').textContent = d.resistance;
   document.getElementById('supVal').textContent = d.support;
+  document.getElementById('emaVal').textContent = 'EMA' + d.emaPeriod + ' ' + (d.priceAboveEMA ? '▲ Above' : '▼ Below');
+  document.getElementById('emaVal').style.color = d.priceAboveEMA ? '#22C55E' : '#EF4444';
+  document.getElementById('stVal').textContent = d.supertrendBullish ? '▲ Bullish' : '▼ Bearish';
+  document.getElementById('stVal').style.color = d.supertrendBullish ? '#22C55E' : '#EF4444';
+
+  const patternWrap = document.getElementById('patternWrap');
+  const pIcon = d.pattern.dir === 'bullish' ? '🟢' : (d.pattern.dir === 'bearish' ? '🔴' : '⚪');
+  patternWrap.innerHTML = '<div class="pattern-hero"><div class="pico">' + pIcon + '</div><div>' +
+    '<div class="pname">' + d.pattern.name + '</div>' +
+    '<div class="pdesc">' + d.pattern.desc + '</div></div></div>';
+
+  const smcWrap = document.getElementById('smcWrap');
+  if (d.smcSignals.length === 0) {
+    smcWrap.innerHTML = '<div class="smc-empty">No significant SMC structure detected in this window.</div>';
+  } else {
+    smcWrap.innerHTML = d.smcSignals.map(function(s) {
+      const icon = s.dir === 'bullish' ? '▲' : (s.dir === 'bearish' ? '▼' : '•');
+      return '<div class="smc-tag ' + s.dir + '"><span>' + icon + '</span><span>' + s.label + '</span></div>';
+    }).join('');
+  }
 
   const step = selectedIndex === 'NIFTY' ? 50 : 100;
   const atm = Math.round(d.spot / step) * step;
@@ -648,27 +892,25 @@ function renderResults(d) {
   if (d.dte !== null) {
     if (d.dte <= 0) {
       highDecay = true;
-      dteWrap.innerHTML = '<div class="dte-banner">' +
-        '<span>⏱ Expiry today — theta decay is high, needs a fast move</span>' +
-        '<span class="dte-num">0 DTE</span></div>';
+      dteWrap.innerHTML = '<div class="dte-banner"><span>⏱ Expiry today — theta decay is high, needs a fast move</span><span class="dte-num">0 DTE</span></div>';
     } else if (d.dte === 1) {
       highDecay = true;
-      dteWrap.innerHTML = '<div class="dte-banner">' +
-        '<span>⏱ Expiry tomorrow — decay accelerating</span>' +
-        '<span class="dte-num">1 DTE</span></div>';
+      dteWrap.innerHTML = '<div class="dte-banner"><span>⏱ Expiry tomorrow — decay accelerating</span><span class="dte-num">1 DTE</span></div>';
     } else {
-      dteWrap.innerHTML = '<div class="dte-banner">' +
-        '<span>⏱ Time to expiry</span>' +
-        '<span class="dte-num">' + d.dte + ' DTE</span></div>';
+      dteWrap.innerHTML = '<div class="dte-banner"><span>⏱ Time to expiry</span><span class="dte-num">' + d.dte + ' DTE</span></div>';
     }
   }
 
+  let warnHTML = '';
   if (highDecay && d.confidence >= 65 && d.confidence < 75) {
-    warnWrap.innerHTML = '<div class="warn-banner">' +
-      '<span>⚠️</span><span><strong>Risky combo:</strong> 0-1 DTE with only moderate confidence. ' +
-      'Theta decay can eat a correct-but-slow move. Consider skipping, using a smaller size, or ' +
-      'favoring the short/sell setup below instead of buying premium.</span></div>';
+    warnHTML += '<div class="warn-banner"><span>⚠️</span><span><strong>Risky combo:</strong> 0-1 DTE with only moderate confidence. ' +
+      'Theta decay can eat a correct-but-slow move. Consider skipping, sizing down, or favoring the short setup below.</span></div>';
   }
+  if (d.hasCHoCH) {
+    warnHTML += '<div class="warn-banner"><span>⚠️</span><span><strong>Change of Character detected:</strong> the recent trend structure just broke. ' +
+      'Confidence has been reduced — this is a higher-risk moment to enter in the old trend direction.</span></div>';
+  }
+  warnWrap.innerHTML = warnHTML;
 
   const tradeContent = document.getElementById('tradeContent');
   const reasoning = document.getElementById('reasoning');
@@ -680,8 +922,7 @@ function renderResults(d) {
     tradeContent.innerHTML =
       '<div class="wait-box"><div class="icon">⏳</div>' +
       '<h3>No Clear Edge — Wait</h3>' +
-      '<p>Signal is not strong enough for a confident strike call right now.<br>' +
-      'Re-check on the next candle close or a fresh screenshot.</p></div>';
+      '<p>Signal is not strong enough for a confident strike call right now.<br>Re-check on the next candle close or a fresh screenshot.</p></div>';
     shortCard.style.display = 'none';
   } else {
     const optType = d.isBullish ? 'CE' : 'PE';
@@ -729,9 +970,7 @@ function renderResults(d) {
       '</div>';
 
     shortNote.innerHTML = 'Short/sell positions have <strong>capped profit, uncapped risk</strong> if unhedged. ' +
-      'The "Exit if spot hits" level is your hard stop — spot moving that far against your bias means the short strike ' +
-      'is under threat and margin calls can escalate fast. Consider hedging with a further OTM buy (creating a spread) ' +
-      'to define your max loss, rather than running a naked short.';
+      'The "Exit if spot hits" level is your hard stop. Consider hedging with a further OTM buy (creating a spread) rather than running a naked short.';
   }
 
   reasoning.innerHTML =
